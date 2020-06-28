@@ -1,0 +1,661 @@
+2020-06-01
+    1、redis缓存首页大广告
+    2、缓存同步
+    3、ElasticSearch介绍
+        3.1、索引结构
+        3.2、倒排索引
+    4、ElasticSearch的安装
+        4.1、环境的需求
+        4.2、安装ES
+        4.3、配置文件
+        4.4、启动ES
+        4.5、测试
+    5、Kibana的介绍
+    6、安装Kibana
+    7、head的介绍
+    8、安装head
+    9、ES入门
+        9.1、index的管理  创建  删除  修改
+        9.2、mapping的管理  创建  查询  更新  删除
+        9.3、document的管理  创建 post  put  查询  删除
+    10、ES的读写原理
+2020-06-02
+    1、IK分词器
+        1.1、两种模式  ik_smart   ik_max_word
+        1.2、自定义词库
+    2、field的详细介绍   就是怎么指定field的属性
+        2.1、field的属性  type  analyzer   index   includes  excludes
+        2.2、常用的field的类型  text  keyword  date  double
+    3、springboot整合ElasticSearch
+        3.1、ES客户端
+        3.2、搭建工程
+        3.3、索引管理
+            3.3.1、创建索引
+            3.3.2、删除索引
+2020-06-03
+    1、文档的管理
+        1.1、添加文档
+        1.2、批量添加
+        1.3、修改文本
+        1.4、删除文本
+    2、文档搜索
+        2.1、match_all查询  全部查询
+        2.2、分页查询
+        2.3、match查询  单条件查询
+        2.4、multi_match查询   根据一个分词  查询多个字段
+        2.5、boot查询   多条件查询
+        2.6、filter查询  不需要计算相关度分数
+        2.7、highlight查询  高光
+2020-06-04
+   1、商品搜索
+        1.1、创建项目
+            1.1.1、usian_search_service
+            1.1.2、usian_search_feign
+            1.1.3、usian_search_web
+        1.2、导入商品数据到索引库
+2020-06-05
+    1、商品搜索的功能
+    2、索引同步
+        2.1、商品添加后做同步逻辑
+2020-06-08
+    问题：商品详情的查询,放在哪合适?
+        如果直接查询mysql,访问量太大mysql可能会宕机
+        如果用elasticSearch是不行的，应为elasticSearch是根据参数查询出一部分信息，而我们要做的事根据参数查询出一个商品信息(从海量数据中筛选出一部分数据)
+        如果直接用redis把商品的数据全部存到redis中Redis会受不了，所以在添加的时候添加失效时间
+    如果全部查询
+    方案一：thymeleaf页面静态化
+        1、创建商品详情的thymeleaf模板
+        2、创建RabbitMQ消费者，收到消息后生成静态页面（D:/detail/26774635180.html）
+        3、搭建nginx服务器，返回静态页面
+    方案二：redis
+      a、redis缓存商品详情
+         1、先查询redis，如果有直接返回
+         2、再查询mysql，并把查询结果装到redis中再返回
+
+      b、如何保证redis不满？redis中都是热点商品？
+        设置商品的实现时间：86400
+
+      c、怎么保存商品信息（数据类型）？
+        ITEM_INFO:123456:BASE
+        ITEM_INFO:123456:DESC
+        ITEM_INFO:123456:PARAM
+        1、根据商品id查询商品基本信息
+            1.1先从redis中查询
+        2、索引同步
+            2.1、商品添加后做同步逻辑
+    任务：
+        1、根据商品id对商品基本信息进行查询！！！
+        2、根据商品id对商品描述信息进行查询！！！
+        3、根据商品id对商品规格信息进行查询！！！
+        4、当商品修改或者删除删除对应itemId的redis，进行同步
+        5、优化redis
+            5.1.缓存穿透
+              缓存空对象：
+                当存储层不命中后，即使返回的空对象也将其缓存起来，同时会设置一个过期时间（避免控制占用更多的存储空间），
+                之后再访问这个数据将会从缓存中获取，保护了后端数据源；
+            5.2.缓存击穿
+                1. 设置热点数据永远不过期。(但是刚上的项目没有热点数据)
+                2. 加分布式锁(setnx())
+2020-06-09
+    1、单点登录介绍
+            SO英文全称Single Sign On，单点登录。SO是在多个应用系统中，用户只需要登录一次就可以访问所有相互信任的应用系统，
+        例如：【百度：百度文库、百度外卖】、【淘宝：淘宝、天猫】、【优思安：门户、搜索、商品详情】。它包括可以将这次主要的登
+        录映射到其他应用中用于同一个用户的登录的机制。它是目前比较流行的企业业务整合的解决方案之一。
+    2、为什么要有单点登录系统？
+        集群环境下会出现要求用户多次登录的情况。
+        解决方案：
+        1、配置tomcat集群(500)。配置tomcat Session复制。节点数不要超过5个。
+        2、可以使用Session服务器（sso系统），保存Session信息。需要模拟Session。
+        session和redis的共同特点：
+        1、kv形式存储
+        2、过期时间
+        单点登录系统是使用redis模拟Session，实现Session的统一管理。
+    3、需求分析
+        2.1.登录
+            把用户信息装到redis(token，user)，再把token装到cookie(token_key,token)
+        2.1.查询
+            先从cookie中取出token，再通过token从redis中查询用户信息
+    4、搭建工程
+        3.1.为什么要搭建工程
+        因为除了登录还有注册、退出登录等功能，模块复杂，根据分布式项目的各持其职，
+        所以要单独抽出来
+    5、做注册用户名和手机号不重复校验
+    6、注册用户功能
+        6.1.记得要加密密码，加密后写入到数据库中
+    7、登录功能
+        7.1、根据用户名密码登录
+        7.2、登录后用token作为key,TbUser作为值存到redis中
+        7.3、定义Map存入token、userid、username返回前台
+    8、根据token查看用户功能
+    9、退出登录
+        9.1、根据token删除user
+2020-06-10
+    1、购物车分析
+        1.1.购物车功能
+            1. 添加购物车商品
+            2. 展示购物车列表页面
+            3. 修改购物车商品数量
+            4. 删除购物车商品
+    2、购物车设计
+        2.1. 用户未登录状态下：在不登陆的情况下把购物车信息写入cookie
+           	优点：
+           		1、不占用服务端存储空间
+           		2、代码实现简单。
+           		3、用户体验好
+           	缺点：
+           		1、cookie中保存的容量有限。最大4k
+           		2、把购物车信息保存在cookie中，更换设备购物车信息不能同步。
+        2.2. 用户已登录状态下：把购物车信息保存到服务端的 Redis 中
+           	优点：
+           		1、更换设备购物车信息可以同步
+           	缺点：
+           		1、占用服务端存储空间
+    3、创建工程
+        usian_cart_service,usian_cart_feign,usian_cart_web
+
+    4、未登录状态操作购物车
+        4.1.业务逻辑：
+            1、从cookie中查询商品列表：Map<itemId,TbItem> 商品购买数量使用TbItem的num保存
+            	    购物车已存在则直接返回
+                    购物车不存在则创建空的购物车并返回
+            2、添加商品到购物车：
+            	如果购物车存在该商品，商品数量相加。
+            	如果购物车不存在该商品，根据商品id查询商品信息并添加到购车列表
+            3、把购车商品列表写入cookie。
+            	读写cookie可以使用CookieUtils工具类实现
+            4、查看列表
+                根据传过来的userId获取到map,然后遍历创建list进行存储返回
+            5、修改商品数量
+                根据传过来的num和itemId先获取到map,根据itemId查对应的value，然后赋值num,重新写到cookie
+            6、删除商品
+                根据传过来的itemId,获取到map.remove(itemId)重新赋值到cookie
+    5、登录状态操作购物车
+         添加商品
+         1、从redis中查询商品列表：Map<itemId,TbItem> 商品购买数量使用TbItem的num保存
+                  购物车已存在则直接返回
+                  购物车不存在则创建空的购物车并返回
+         2、添加商品到购物车：
+                  如果购物车存在该商品，商品数量相加。
+                  如果购物车不存在该商品，根据商品id查询商品信息并添加到购车列表
+         3、把购车商品列表写入redis。
+         4、查看列表
+                  根据传过来的userId获取到map,然后遍历创建list进行存储返回
+         5、修改商品数量
+                  根据传过来的num和itemId先获取到map,根据itemId查对应的value，然后赋值num,重新写到redis
+         6、删除商品
+                  据传过来的itemId,获取到map.remove(itemId)重新赋值到redis
+    6、cookie同步到redis中
+        1、先从cookie中查询出数据
+        2、再从登录返回中的map获取userId，根据id查询出redis中购物车的信息
+        3、遍历cookieMap中所有的key,cookieMap和redisMap根据key获取到tbItem
+        4、看redisMap是否能根据cookieMap遍历的key获取到数据，如果能则添加数量，不能则向redisMap中添加新值
+        5、去覆盖redis中的map
+        6、删除cookie中的数据
+2020-06-16
+    订单分析
+      订单功能
+    1、在购物车页面点击“去结算”按钮跳转到订单确认页面
+    	a) 展示商品列表
+    	b) 配送地址列表
+        c) 选择支付方式
+    2、订单确认页面需要根据用户查询配送地址，展示订单确认页面之前，应该确认用户身份
+    	a) 如果用户未登录或登录过期跳转到登录页面
+    	d) 登录成功后再跳转到订单确认页面
+    3、提交订单
+    	a) 生成订单
+    4、扣减库存
+    5、关闭超时订单
+    	a) 定时扫描超时2天未付款的订单，并关闭订单
+    	b) 加回库存
+    6、新建工程: usian-order-service,usian-order-web,usian-order-feign
+    7、用户身份认证
+        1、使用springmvc的拦截器拦截所有订单的请求
+        2、业务逻辑
+           a) 从cookie中取token。
+           b) 根据token调用sso服务查询用户信息。
+           d) 如果查不到用户信息则跳转到登录页面。
+           e) 查询到用户信息放行。
+    8、用户登录后点击去结算，展示结算数据
+        8.1根据传过来的userId去获取redis中存的map
+        8.2创建list，然后遍历商品ids,根据遍历的id获取redisCar中的数据，存到list中进行返回
+2020-06-17
+    展示订单确认页面
+        功能分析
+    1、在购物车页面点击“去结算”按钮跳转到订单确认页面。
+    2、请求的url：/frontend/order/goSettlement
+    3、参数：ids，userId，token
+    4、查询redis中的购物车数据并返回给前端
+    5、配送地址列表，需要用户登录。需要根据用户id查询收货地址列表。静态数据。
+    6、支付方式。静态数据。
+        提交订单
+    1、如何生成订单号
+    订单号需求是什么？
+        1、唯一
+        2、可读性高
+            a) 纯数字
+    如何生成：
+        1、时间戳
+            a)可能重复
+        3、时间戳 +随机数
+            a)可能重复
+        2、手机号
+            a)重复
+        4、时间戳 +自增id
+            a)可行（使用Redis的INCR命令完成）（初值：100544）
+        5、时间戳+用户id/手机号
+        6、时间戳+用户id +店铺id
+            a)可行，适用于C2C、B2C平台
+    2.功能分析
+        2.1、保存订单信息
+            a、在订单确认页面点击“提交订单”按钮生成订单。
+            b、请求的url：/frontend/order/insertOrder
+            c、参数：订单、订单商品、订单物流
+            d、返回值：{"status":200,"msg":"OK","data":"订单ID"}
+    3.扣减库存
+        3.1.分析
+        将消息写入消息队列，业务逻辑以异步的方式运行，加快响应速度
+2020-06-18
+    关闭超时订单
+    分析：
+    1、定义job扫描订单表：
+        a、修改订单的状态为关闭状态、结束时间、关闭时间、修改时间为当前时间
+		 b、把订单中商品的库存数量加回去
+     	扫描条件：状态是未付款 并且 创建时间 <= 当前时间 – 2天  并且付款方式为在线支付的订单
+    2、定义触发条件
+		a)  理论上需要实时触发（性能问题）
+		b)  1分钟触发一次 0 */1 * * * ?
+    3.quartz集群任务重复执行问题
+    分析
+    quartz 在集群的时候，任务会出现重复执行的情况：
+2020-06-19
+    事务的介绍
+    1、什么是事务？
+        当你需要一次执行多条SQL语句时，可以使用事务。通俗一点说，如果这几条SQL语句全部执行成功
+    ，则才对数据库进行一次更新，如果有一条SQL语句执行失败，则这几条SQL语句全部不进行执行，这个时候需要用到事务。
+        原子性（Atomicity）
+               要么都执行，要么都不执行
+        一致性（Consistency）
+               事务前后的数据都是正确的
+        隔离性（Isolation）
+              事物之间相互隔离，互不干扰（并发执行的事务彼此无法看到对方的中间状态）
+        持久性（Durability）
+               事务一旦提交不可再回滚
+    2、本地事务
+        2.1.数据库本身控制事务
+        2.2.jdbc中使用事物
+        2.3.aop控制事务
+    3、分布式事务
+        分布式系统会把一个应用系统拆分为可独立部署的多个服务，因此需要服务与服务之间远程协作才能完成事务操作
+    ，这种分布式系统环境下由不同的服务之间通过网络远程协作完成事务称之为分布式事务
+    4、分物产布式事生的场景
+        4.1两个service---->一个数据库
+        4.2一个service---->两个数据库
+    5、为什么要使用可靠消息最终一致性
+        我希望的是基于MQ 实现异步调用的多个服务的业务逻辑，要么一起成功，要么一起失败。
+     这个时候，就要用上可靠消息最终一致性方案，来实现分布式事务。
+    6、什么是可靠消息最终一致性
+        可靠消息：消息成功消费
+        最终一致性：事务参与方最终完成事务
+    7、可靠消息最终一致性要解决的问题
+    	7.1、上游服务把消息成功发送：
+    		本地消息表：消息记录表（orderId、status） + quartz（定时扫描、再发送消息）
+    	7.2、下游服务把消息成功消费
+    		持久化+手动确认方案：持久化（mq宕机消息不丢失）、手动确认（任务处理失败消息还在容器中）
+    	7.3、消息去重息做幂表
+2020-06-22
+    一、ELK技术栈的介绍
+   	1、什么是ELK
+   		elasticsearch：全文检索服务器
+   		kibana：对es存储的数据进行可视化分析
+   		logstash：负责搜集日志，并将数据发送给es
+   	2、为什么要使用elk？
+   		分布式环境日志比较分散
+   		大日志搜索太慢
+   		无法多维度搜索
+   	3、springcloud整合elk
+   		a、pom.xml
+   			logstash-logback-encoder
+   		b、logback.xml
+   			<root level="DEBUG">
+   				<appender-ref ref="Stdout" />
+   				<appender-ref ref="RollingFile" />
+   				<appender-ref ref="logstash" />
+   			</root>
+2020-06-23
+    网关服务
+    1、路由
+        所有请求都通过网关访问服务的consumer
+    2、限流
+        网关每秒只能有一个请求对consumer进行访问
+    3、容错
+        客户端通过zuul无法调用consumer时，使用zuul对consumer进行降级
+    4、熔断
+        通过 Hystrix 对provider做降级处理、
+2020-06-24
+    MySql主从复制
+    下载地址：https://dev.mysql.com/downloads/mysql/
+    1、卸载预装mysql
+        #查看已安装：
+        [root@centos upload]# rpm -qa|grep mysql
+        #卸载：
+        [root@centos upload]# rpm -e --nodeps mysql-libs-5.1.71-1.el6.x86_64
+        #再次查看：
+        [root@centos upload]# rpm -qa|grep mysql
+    2、解压安装包
+        [root@centos upload]# tar -zxvf mysql-5.6.31-linux-glibc2.5-x86_64.tar.gz -C /usr/java
+        [root@centos upload]# cd /usr/java
+        [root@centos java]# mv mysql-5.6.31-linux-glibc2.5-x86_64 mysql
+    3、复制mysql的配置文件
+        [root@centos java]# cd mysql
+        [root@centos java]# cp support-files/my-default.cnf /etc/my.cnf
+        [root@centos java]# cp support-files/mysql.server /etc/rc.d/init.d/mysql
+    4、修改my.cnf
+        vim /etc/my.cnf
+
+        basedir = /usr/java/mysql
+        datadir = /usr/java/mysql/data
+        log-error = /usr/java/mysql/data/error.log
+        pid-file = /usr/java/mysql/data/mysql.pid
+        user = root
+        tmpdir = /tmp
+    5、初始化数据库
+         [root@centos java]# cd /usr/java/mysql
+         [root@centos mysql]# ./scripts/mysql_install_db --user=root
+         --basedir=/usr/java/mysql --datadir=/usr/java/mysql/data
+         --pid-file=/usr/java/mysql/data/mysql.pid --tmpdir=/tmp
+    6、启动和关闭mysql
+        [root@centos mysql]# service mysql start
+        Starting MySQL..                                          [确定]
+        [root@centos mysql]# service mysql stop
+        Shutting down MySQL..                                     [确定]
+        [root@centos mysql]# service mysql restart
+        Shutting down MySQL..
+        Starting MySQL..                                          [确定]
+    7、配置mysql命令支持
+        如果提示没有mysql命令，需要添加软连接
+        [root@centos mysql]# ln -s /usr/java/mysql/bin/mysql /usr/bin/mysql
+    8、修改MySQL密码
+        [root@centos upload]# mysql -u root
+        mysql> use mysql;
+        mysql> update user set password= password("1111") where user='root';
+        mysql> flush privileges;
+    9、开放远程登录权限
+        mysql>GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '1111' WITH GRANT OPTION;
+        mysql>FLUSH PRIVILEGES;
+    10、设置开机启动
+        [root@centos mysql]# chkconfig mysql on
+    MySQL主从复制
+    1、mysql主从简介
+        1. MySQL 默认支持主(master)从(slave)功能.
+        2. 主从复制效果：在主数据库中操作时,从同步进行变化.
+        3. 主从复制本质：主数据的操作写入到日志中,从数据库从日志中读取,进行操作.
+    2、主从备份要素：
+        1. 开启日志功能
+        2. 每个数据库需要有一个 server_id,主 server_id 值小于从server_id(标识从哪server写入的)
+        3. 每个 mysql 都有一个 uuid,由于虚拟机直接进行克隆,需要修改uuid 的值(唯一识别码)
+        4. 必须要在主数据库中有一个用户具有被从数据库操作的权限.
+    3、克隆mysql1的虚拟机
+        作为从数据库
+    4、配置主数据库
+        修改主数据库的my.cnf文件
+        log_bin=master_log
+        server_id=1
+        重启mysql
+        [root@centos upload]# service mysql restart
+
+    5、配置从数据库
+        1、修改server_id
+            server_id=2
+        2、data文件夹auto.cnf编写当前mysql的uuid
+            server-uuid=b144a074-6ebe-11e9-b501-000c293cc59c
+        3、重启mysql
+            [root@centos upload]# service mysql restart
+        4、修改slave
+            mysql> stop slave;
+            mysql> change master to master_host='192.168.233.137',master_user='root',master_password='1111',master_log_file='master_log.000001';
+            mysql> start slave;
+        5、查看slave状态
+            mysql>show slave status \G;
+                io线程和sql线程已开启：
+                Slave_IO_Running:Yes
+                Slave_SQL_Running:Yes
+                Last_IO_Errno:0
+                Last_IO_Error:
+                Last_SQL_Errno:0
+                Last_SQL_Error:
+                只要没有错误,说明配置成功主从关系：
+        6、验证主从关系
+              在主数据库中新建数据库,新建表,添加数据,观察从数据库的
+
+        MyCat
+        1、MyCat简介
+               MyCAT是一个数据库中间件。国产开源项目，前身是cobar项目。
+        2、Mycat对多数据库的支持
+            MySQL、甲骨文、SQLServer、PostgreSQL、mongoDB
+        3、MyCAT架构
+            如图所示：MyCAT使用Mysql的通讯协议模拟成了一个Mysql服务器，所有能使用Mysql的客户端
+            以及编程语言都能将MyCAT当成是Mysql Server来使用，不必开发新的客户端协议。
+        4、MyCat分库分表
+            垂直分割（分库）：指按照业务将表进行分类，分布到不同的数据库上面，这样也就将数据或者
+        说压力分担到不同的库上面，就是将不同业务的表分配到不同的库中。
+            水平分割（分表）：一个表格的数据按照行分割到多个节点上，就是将表中的数据平均分到不同库中。
+        典型的分片规则：
+        	根据主键编号进行hash、求余，如hash(key)%5
+        5、MyCat安装
+            5.1、下载mycat
+                官方网站：http://www.mycat.org.cn/
+                github地址：https://github.com/MyCATApache
+            5.2、安装Mycat
+                1、把MyCat的压缩包上传到linux服务器
+                2、解压缩，得到mycat目录
+                [root@centos upload]# tar -zxvf Mycat-server-1.6-RELEASE-20161028204710-linux.tar.gz -C /usr/java
+                3、启动和关闭MyCat
+                    进入mycat/bin，启动MyCat
+                    启动命令：./mycat start
+                    停止命令：./mycat stop
+                    重启命令：./mycat restart
+                    查看状态：./mycat status
+                4、Mycat分库分表和读写分离
+                    需求：把商品表分片存储到两个数据节点上。
+                    安装环境：
+                    mysql节点1环境
+                        操作系统版本 : centos6.5
+                        数据库版本 :mysql-5.6
+                        数据库名 : db1
+                        ip:192.168.25.134
+                    mysql节点2环境
+                        操作系统版本 :centos6.5
+                        数据库版本 :mysql-5.6
+                        数据库名 : db2
+                        ip:192.168.25.135
+                    mysql节点3环境
+                        操作系统版本 :centos6.5
+                        数据库版本 :mysql-5.6
+                        数据库名 : db3
+                        ip:192.168.25.136
+                    mycat节点环境
+                        操作系统版本 :centos6.5
+                        mycat版本：1.6release
+                        ip:192.168.25.137
+                5、MyCat重要概念
+                    1、逻辑库（schema）：一个包含了所有数据库的逻辑上的数据库
+                    2、逻辑表（table）：一个包含了所有表的逻辑上的表
+                    3、数据主机（dataHost）：数据库软件安装到哪个服务器上
+                    4、数据节点（dataNode）：数据库软件中的 database
+                    5、分片规则（rule）：拆分规则
+                6、配置schema.xml
+                    Schema.xml介绍：Schema.xml作为MyCat中重要的配置文件之一，管理着MyCat的逻辑库、表、分片规则、DataNode以及DataSource。
+                    schema.xml配置
+                        <?xml version="1.0"?>
+                        <!DOCTYPE mycat:schema SYSTEM "schema.dtd">
+                        <mycat:schema xmlns:mycat="http://io.mycat/">
+                        	<schema name="usian" checkSQLschema="false" sqlMaxLimit="100">
+                                 <table name="tb_content" dataNode="dn1,dn2,dn3" rule="crc32slot" />
+                        		<table name="tb_content_category" dataNode="dn1,dn2,dn3" rule="crc32slot1"/>
+                        		<table name="tb_item" dataNode="dn1,dn2,dn3" rule="crc32slot2" />
+                        		<table name="tb_item_cat" dataNode="dn1,dn2,dn3" rule="crc32slot3" />
+                        		<table name="tb_item_desc" dataNode="dn1,dn2,dn3" rule="crc32slot4"  />
+                        		<table name="tb_item_param" dataNode="dn1,dn2,dn3" rule="crc32slot5"  />
+                        		<table name="tb_item_param_item" dataNode="dn1,dn2,dn3" rule="crc32slot6" />
+                        		<table name="tb_order" dataNode="dn1,dn2,dn3" rule="crc32slot7" />
+                        		<table name="tb_order_item" dataNode="dn1,dn2,dn3" rule="crc32slot8" />
+                        		<table name="tb_order_shipping" dataNode="dn1,dn2,dn3" rule="crc32slot9" />
+                        		<table name="tb_user" dataNode="dn1,dn2,dn3" rule="crc32slot10" />
+                        	</schema>
+                        	<dataNode name="dn1" dataHost="localhost1" database="db1" />
+                        	<dataNode name="dn2" dataHost="localhost1" database="db2" />
+                        	<dataNode name="dn3" dataHost="localhost1" database="db3" />
+                        	<dataHost name="localhost1" maxCon="1000" minCon="10" balance="0"
+                        		writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+                        		<heartbeat>select user()</heartbeat>
+                        		<writeHost host="hostM1" url="192.168.233.137:3306" user="root" password="1111">
+                        			<readHost host="hostS2" url="192.168.233.138:3306" user="root" password="1111" />
+                        		</writeHost>
+                        	</dataHost>
+                        </mycat:schema>
+                7、配置server.xml
+                    server.xml介绍
+                        server.xml几乎保存了所有mycat需要的系统配置信息。最常用的是在此配置用户名、密码及权限。
+                    server.xml配置
+                        <user name="root">
+                            <property name="password">1111</property>
+                            <property name="schemas">usian</property>
+                        </user>
+                        <user name="user">
+                            <property name="password">1111</property>
+                            <property name="schemas">usian</property>
+                            <property name="readOnly">true</property>
+                        </user>
+                8、配置rule.xml
+                    分片规则
+                    auto-sharding-long 规则
+                        以 500 万为单位,实现分片规则：
+                        1-500 万保存在 db1 中, 500 万零 1 到 1000 万保存在 db2 中,1000 万零 1 到 1500 万保存在 db3 中.
+                    crc32slot  规则
+                        在 CRUD 操作时,根据具体数据的 crc32 算法计算,数据应该保存在哪一个dataNode 中
+                    rule.xml配置
+                        1）<columns>id</columns>中推荐配置主键列
+                        2）所有的 tableRule 只能使用一次。如果需要为多个表配置相同的分片规则，那么需要在此重新定义该规则。
+                        3) 要分片的数据库节点数量，必须指定，否则没法分片
+                    <tableRule name="crc32slot1">
+                        <rule>
+                        	<columns>id</columns>
+                        	<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+                    <tableRule name="crc32slot2">
+                        <rule>
+                       	 	<columns>id</columns>
+                       		<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+                    <tableRule name="crc32slot3">
+                        <rule>
+                        	<columns>id</columns>
+                        	<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+                    <tableRule name="crc32slot4">
+                        <rule>
+                        	<columns>item_id</columns>
+                        	<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+                    <tableRule name="crc32slot5">
+                        <rule>
+                        	<columns>id</columns>
+                        	<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+                    <tableRule name="crc32slot6">
+                        <rule>
+                        	<columns>id</columns>
+                        	<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+                    <tableRule name="crc32slot7">
+                        <rule>
+                        	<columns>order_id</columns>
+                        	<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+                    <tableRule name="crc32slot8">
+                        <rule>
+                        	<columns>id</columns>
+                        	<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+                    <tableRule name="crc32slot9">
+                        <rule>
+                        	<columns>order_id</columns>
+                        	<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+                    <tableRule name="crc32slot10">
+                        <rule>
+                        	<columns>id</columns>
+                        	<algorithm>crc32slot</algorithm>
+                        </rule>
+                    </tableRule>
+
+                    <function name="crc32slot" class="io.mycat.route.function.PartitionByCRC32PreSlot">
+                        <property name="count">3</property><!-- 要分片的数据库数量，必须指定，否则没法分片 -->
+                    </function>
+                9、测试
+                     创建库  在主数据库中分别创建db1、db2、db3
+                    创建表并插入数据
+                        配置完毕后，重新启动mycat。
+                        使用mysql客户端连接mycat，创建表并插入数据。
+                    项目测试
+                        修改数据库url
+                        spring:
+                          application:
+                            name: usian-item-service
+                          datasource:
+                            driver-class-name: com.mysql.jdbc.Driver
+                            url: jdbc:mysql://192.168.233.139:8066/usian?characterEncoding=UTF-8
+                            username: root
+                            password: 1111
+                            type: com.alibaba.druid.pool.DruidDataSource
+2020-06-28
+    Swagger
+    1、Swagger是什么？
+        Swagger[ˈswæɡə(r)，丝袜哥] ：是一个实现了OpenAPI规范的工具集
+        ，用于生成API文档并提供可视化 RESTful 风格的 Web 服务。
+    2、为什么要使用Swagger？
+        随着互联网技术的发展，现在的网站架构基本都由原来的后端渲染，变成了：前端渲染、前后端分离的形态，而且前端技术和后端技术在各自的道路上越走越远。
+        前端和后端的唯一联系，变成了API接口；API文档变成了前后端开发人员联系的纽带，变得越来越重要。
+        没有API文档工具之前，大家都是手写API文档的，在什么地方书写的都有，而且API文档没有统一规范和格式，每个公司都不一样。
+    3、Swagger使用
+        springfox-swagger2
+        springfox-swagger-ui
+    4、配置Swagger配置类
+        SwaggerConfig
+    5、常用注解说明
+         @Api：修饰整个类，描述Controller的作用
+         @ApiOperation：描述一个类的一个方法，或者说一个接口
+         @ApiParam：单个参数描述
+         @ApiImplicitParam：单个参数描述
+         @ApiImplicitParams：多个参数描述
+         @ApiModel：用对象来接收参数
+         @ApiModelProperty：用对象接收参数时，描述对象的一个字段
+         @ApiResponse：HTTP响应其中1个描述
+         @ApiResponses：HTTP响应整体描述
+    6、网关服务
+        需求:
+            路由：所有请求都通过网关访问服务的consumer
+            容错：客户端通过zuul无法调用consumer时，使用zuul对consumer进行降级
+            限流：使用令牌桶算法实现zuul对consumer的限流
+    7、熔断处理
+        降级：通过 Hystrix 对provider做降级处理
+        熔断：通过 Hystrix 对provider做熔断处理
+2020-06-28
+    1、分布式配置中心 config
+        需求分析
+        1. 集中管理配置文件
+        2. 不同环境不同配置，比如dev/test/prod/beta/release等
+    2、上传配置文件到github
+    3、搭建配置中心工程common_config
+    4、消息总线 bus
+        需求分析
+        运行期间当配置发生变动时，服务器不需要重启即可同步配置的变化
